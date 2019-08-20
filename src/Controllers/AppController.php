@@ -18,13 +18,16 @@ class AppController extends Controller
     {
         // Si l'utilisateur est connecté, il accède à la page d'accueil du réseau social...
         if (Auth::isLogged()) {
+            // Création de l'utilisateur courant
             $user = new User(Auth::currentUserId());
-            if (!empty($request->request->all() && !empty($message = $request->request->all()["message"]))) {
+            // Gestion de l'ajout d'un touitte en base de données, si besoin (i.e. si le formulaire a été rempli)
+            if (!empty($request->request->all() && !empty($message = $request->request->get("message")))) {
                 Messages::addMessage($message, $user->getId());
             }
+
             return $this->render("home", ["user" => $user]);
         }
-        // Sinon, on le redirige sur la page d'accueil des utilisateurs non connectés
+        // ...sinon, on le redirige sur la page d'accueil des utilisateurs non connectés
         return $this->redirect("/");
     }
 
@@ -34,17 +37,22 @@ class AppController extends Controller
      */
     public function timeline()
     {
+        // Si l'utilisateur est connecté...
         if (Auth::isLogged()) {
+            // Création de l'utilisateur courant
             $user = new User(Auth::currentUserId());
+            // Récupération des dix derniers utilisateurs créés
             $recentUsers = Messages::getUsersByCreationDate();
+            // Récupération de la timeline
             $timeline = Messages::getTimeline();
+
             return $this->render("timeline", [
                 "user" => $user,
                 'timeline' => $timeline,
                 "recentUsers" => $recentUsers,
             ]);
         }
-        // Sinon, on le redirige sur la page d'accueil des utilisateurs non connectés
+        // ...sinon, on le redirige sur la page d'accueil des utilisateurs non connectés
         return $this->redirect("/");
     }
 
@@ -56,14 +64,17 @@ class AppController extends Controller
      */
     public function profile($request)
     {
+        // Si l'utilisateur est connecté...
         if (Auth::isLogged()) {
+            // Création de l'utilisateur courant
             $user = new User(Auth::currentUserId());
+            // Création de l'utilisateur dont le profil va être affiché
             $requestedUser = new User(Users::getUserIdByUsername(urldecode($request->attributes->get("user"))));
+            // Gestion du bouton (Suivre)/(Ne plus suivre)
 
             if (!empty($request->request->all())) {
-
-                if ($request->request->all()["follow"] == "unfollow") $user->unfollow($requestedUser);
-                if ($request->request->all()["follow"] == "follow") $user->follow($requestedUser);
+                if ($request->request->get("follow") == "unfollow") $user->unfollow($requestedUser);
+                if ($request->request->get("follow") == "follow") $user->follow($requestedUser);
             }
 
             return $this->render("profile", [
@@ -72,6 +83,7 @@ class AppController extends Controller
                 "isFollowed" => $requestedUser->isFollowedBy($user),
             ]);
         }
+        // ...sinon, on le redirige sur la page d'accueil des utilisateurs non connectés
         return $this->redirect("/");
     }
 }

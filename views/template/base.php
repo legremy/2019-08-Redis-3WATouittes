@@ -41,6 +41,8 @@ use App\Services\Auth;
     <div class="container">
         <?= $content_data; ?>
     </div>
+    <hr>
+    <div style="height:150px;background-color:#eee"></div>
 </body>
 
 </html>

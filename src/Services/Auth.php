@@ -5,16 +5,28 @@ namespace App\Services;
 class Auth
 {
 
+    /**
+     * Vérifie si un utilisateur est authentifié
+     *
+     */
     public static function isLogged()
     {
 
         $redis = RedisConnection::getInstance()->getClient();
-        if (isset($_COOKIE[APP_COOKIE_NAME]) && ($redis->hget("auths", $_COOKIE[APP_COOKIE_NAME]))) {
-            return true;
+        // Le cookie d'authentification doit évidemment exister, si oui on récupère sa valeur
+        // Il faut également que sa valeur existe dans la clé auths, si oui on récupère l'id utilisateur associé
+        if ($authCookie = $_COOKIE[APP_COOKIE_NAME] && $userId = self::currentUserId()) {
+            // Pour un peu plus de sécurité, on vérifie si l'id user récupéré correspond bien à l'auth présent dans la clé resprésentant ce user            
+            if ($redis->hget("user:$userId", "auth") != $authCookie) return false;
+            return $userId;
         }
         return false;
     }
 
+    /**
+     * Renvoie l'id de l'utilisateur authentifié, grâce à la valeur du cookie d'authentification
+     *
+     */
     public static function currentUserId()
     {
         $redis = RedisConnection::getInstance()->getClient();
@@ -33,11 +45,24 @@ class Auth
         // Récupération de la chaine unique associée à un utilisateur
         $authSecret = $redis->hget("user:$userId", "auth");
         // Construction du cookie d'authentification
-        setcookie(APP_COOKIE_NAME, $authSecret, time() + 3600 * 24 * 365, "/");
+        setcookie(APP_COOKIE_NAME, $authSecret, time() + 3600 * 24 * 365);
     }
 
     /**
-     * Gestion du formulaire de connexion de l'utilisateur (Utilisation de Redis)
+     * Déconnexion
+     *
+     */
+    public static function logout($userid)
+    {
+        $redis = RedisConnection::getInstance()->getClient();
+        $newAuthSecret = md5(uniqid());
+        $oldauthsecret = $redis->hget("user:$userid", "auth");
+        unset($_COOKIE[APP_COOKIE_NAME]);
+        setcookie(APP_COOKIE_NAME, null, -1);
+    }
+
+    /**
+     * Gestion du formulaire de connexion de l'utilisateur 
      *
      * @param Symfony\Component\HttpFoundation\Request $request
      */
@@ -73,6 +98,7 @@ class Auth
     {
         $errors = [];
         $userId = null;
+
         // Connexion à Redis
         $redis = RedisConnection::getInstance()->getClient();
 
@@ -87,17 +113,16 @@ class Auth
 
         // Si les données sont valides...
         if (empty($errors)) {
-            // On incrémente la valeur de la clé nex_user_id qui garantit que chaque id sera unique
+            // On incrémente la valeur de la clé next_user_id qui garantit que chaque id sera unique
             // Équivaut un peu à un AUTO_INCREMENT en SQL
             $userId = $redis->incr("next_user_id");
-            // On définit une chaine unique et impossible à deviner dont on se servira pour construire
-            // le cookie "auth"
+            // On définit une chaine unique et impossible à deviner dont on se servira pour construire le cookie "auth"
             $authSecret = md5(uniqid());
             // On ajoute au hash 'users' le nom et l'id de l'utilisateur créé
             $redis->hset("users", $username, $userId);
             // On ajoute au hash 'auths' la chaine secrete et l'id de l'utilisateur créé
             $redis->hset("auths", $authSecret, $userId);
-            // On ajoute au SET ordonné 'users_by_time' le nom de l'utilisateur et la 'date' (timestamp) de création 
+            // On ajoute au SET ordonné 'users_by_time' le nom de l'utilisateur et le rang (sous forme de timestamp) 
             $redis->zadd("users_by_time", time(), $username);
             // On ajoute enfin l'utilisateur dans un hash défini par une clé de type "user:45"
             $redis->hmset(

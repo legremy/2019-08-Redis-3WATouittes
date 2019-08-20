@@ -11,12 +11,10 @@ use App\Controllers\Controller;
  * 
  * La gestion des inscriptions et des connexions se fait en deux temps.
  * La méthode AuthController::register est appelée via l'url (/register) et appelle elle-même
- * une méthode App\Models\Auth::loginHandler
+ * une méthode App\Services\Auth::loginHandler
  * De même, la méthode AuthController::welcome est appelée via l'url (/welcome) et appelle 
- * une méthode App\Models\Auth::loginHandler
+ * une méthode App\Services\Auth::loginHandler
  * C'est surtout une façon de découper le code afin que la partie Redis soit mieux visible. 
- * En effet tout le traitement sur la base de données se trouve dans les trois
- * méthodes : App\Models\Auth::registerHandler, App\Models\Auth::loginHandler et App\Models\Auth::login
  * 
  */
 class AuthController extends Controller
@@ -28,8 +26,7 @@ class AuthController extends Controller
     public function logout()
     {
         // Destruction du cookie d'authentification
-        unset($_COOKIE[APP_COOKIE_NAME]);
-        setcookie(APP_COOKIE_NAME, null, -1, '/');
+        if ($userId = Auth::isLogged()) Auth::logout($userId);
         return $this->redirect('/');
     }
 

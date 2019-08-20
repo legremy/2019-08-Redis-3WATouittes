@@ -20,6 +20,7 @@ class User
     {
         // Connexion à Redis
         $redis = RedisConnection::getInstance()->getClient();
+        // Si l'id passé au constructeur est celui d'un utilisateur, on construit un objet le représentant
         if ($redis->hgetall("user:$id")) {
             $this->setId($id);
             $this->setUsername($redis->hget("user:$id", "username"));
@@ -27,48 +28,89 @@ class User
         }
     }
 
+    /**
+     * Récupère la liste des messages postés par l'utilisateur
+     *
+     */
     public function getPosts()
     {
+        // Connexion à Redis
         $redis = RedisConnection::getInstance()->getClient();
+        // On récupère les ids de tous les posts de l'utilisateur courant. 
+        // L'offset stop à -1 signifie qu'on souhaite récupérer l'ensemble des valeurs
         $posts = $redis->lrange("posts:$this->id", 0, -1);
         foreach ($posts as $post) $userPosts[] = new Message($post);
 
         return $userPosts ?? null;
     }
 
-    public function isFollowedBy(User $user)
+    /**
+     * vérifie si l'utilisateur courant est suivi par un utilisateur $user
+     *
+     * @param User $user
+     * @return boolean
+     */
+    public function isFollowedBy(User $user): bool
     {
+        // Connexion à Redis
         $redis = RedisConnection::getInstance()->getClient();
+        // Si l'id de $user se trouve dans la liste d'ids des followers de l'utilisateur courant ($this)... 
         if ($redis->zscore("followers:$this->id", $user->getId()))
             return true;
         return false;
     }
+
+    /**
+     * Abonne l'utilisateur courant à $user
+     *
+     * @param User $user
+     */
     public function follow(User $user)
     {
+        // Connexion à Redis
         $redis = RedisConnection::getInstance()->getClient();
-
+        // On ajoute l'id de l'utilisateur courant à la liste des id des followers de $user
         $redis->zadd("followers:" . $user->getId(), time(), $this->id);
+        // On ajoute l'id de $user à la liste des id des abonnements de l'utilisateur courant
         $redis->zadd("following:" . $this->id, time(), $user->getId());
     }
 
+    /**
+     * désabonne l'utilisateur courant de $user
+     *
+     * @param User $user
+     */
     public function unfollow(User $user)
     {
+        // Connexion à Redis
         $redis = RedisConnection::getInstance()->getClient();
+        // On supprime l'id de l'utilisateur courant de la liste des id des followers de $user
         $redis->zrem("followers:" . $user->getId(), $this->id);
+        // On supprime l'id de $user de la liste des id des abonnements de l'utilisateur courant
         $redis->zrem("following:" . $this->id, $user->getId());
     }
 
+    /**
+     * Récupère le nombre d'abonnements de l'utilisateur courant
+     *
+     */
     public function isFollowingNumber()
     {
         $redis = RedisConnection::getInstance()->getClient();
         return $redis->zcard("following:" . $this->id);
     }
 
+    /**
+     * Récupère le nombre d'abonnés de l'utilisateur courant
+     *
+     */
     public function isFollowedByNumber()
     {
         $redis = RedisConnection::getInstance()->getClient();
         return $redis->zcard("followers:" . $this->id);
     }
+
+    // GETTERS ET SETTERS ========================================================================================
 
     public function getId()
     {

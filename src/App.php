@@ -7,6 +7,9 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
 
+/**
+ * Lance l'application, gère la prise en charge de la requête
+ */
 class App
 {
     protected $matcher;

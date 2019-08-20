@@ -2,10 +2,12 @@
 
 namespace App\Controllers;
 
-use App\Services\Auth;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
+/**
+ * Controller par défaut, gérant le rendu des vues et les redirections de façon sommaire, rien d'intéressant ici
+ */
 class Controller
 {
     protected function render($route, array $params = [])
